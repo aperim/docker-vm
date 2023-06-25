@@ -28,6 +28,12 @@ chmod 400 /var/secrets/op
 
 # Remove temporary directory
 rm -rf "$TEMP_DIR"
+rm -Rf /etc/apt/keyrings/docker.gpg \
+    /usr/share/keyrings/1password-archive-keyring.gpg \
+    /etc/apt/sources.list.d/1password.list \
+    /etc/debsig/policies/AC2D62742012EA22/1password.pol \
+    /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg \
+    /etc/apt/sources.list.d/docker.list
 
 echo "Scaffolding complete. Installing packages"
 
