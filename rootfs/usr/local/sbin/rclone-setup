@@ -53,8 +53,7 @@ function setup {
       export RCLONE_CONFIG_PASS="${rclone_password}"
 
       # Decrypt the rclone config
-      RCLONE_CONFIG=/var/lib/docker-plugins/rclone/config/rclone.conf rclone config 
-      show --ask-password=false > /run/rclone-config/rclone.conf
+      RCLONE_CONFIG=/var/lib/docker-plugins/rclone/config/rclone.conf rclone config show --ask-password=false > /run/rclone-config/rclone.conf
     fi
   fi
   # If no valid secret found, just copy the config to tmp location
