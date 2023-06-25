@@ -28,6 +28,12 @@ chmod 400 /var/secrets/op
 
 # Remove temporary directory
 rm -rf "$TEMP_DIR"
+rm -Rf /etc/apt/keyrings/docker.gpg \
+    /usr/share/keyrings/1password-archive-keyring.gpg \
+    /etc/apt/sources.list.d/1password.list \
+    /etc/debsig/policies/AC2D62742012EA22/1password.pol \
+    /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg \
+    /etc/apt/sources.list.d/docker.list
 
 echo "Scaffolding complete. Installing packages"
 
@@ -62,11 +68,19 @@ sudo curl https://rclone.org/install.sh | sudo bash -s beta
 sudo DEBIAN_FRONTEND=noninteractive apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 1password-cli && \
 sudo usermod -aG docker $OPERATIONS_USER
 
+sudo mkdir -p /var/lib/docker-plugins/rclone/cache && \
+    sudo chown root:docker /var/lib/docker-plugins/rclone /var/lib/docker-plugins/rclone/config /var/lib/docker-plugins/rclone/cache && \
+    sudo chmod 775 /var/lib/docker-plugins/rclone /var/lib/docker-plugins/rclone/config /var/lib/docker-plugins/rclone/cache && \
+    sudo chmod 660 /var/lib/docker-plugins/rclone/config/rclone.conf
+
 sudo systemctl enable update-rclone.service && \
 sudo systemctl enable docker-volume-rclone.service && \
 sudo systemctl enable docker.service && \
 sudo systemctl enable containerd.service
 
+# Info
+echo -e "To configure rclone:\n"
+echo -e "rclone config --config /var/lib/docker-plugins/rclone/config/rclone.conf\n\n"
 # Print warning message to the user
 echo -e "\n\033[1;93m⚠️  WARNING! ⚠️\033[0m"
 echo -e "\nYOU MUST REPLACE THE TOKEN IN /var/secrets/op WITH A VALID TOKEN."
