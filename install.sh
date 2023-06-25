@@ -69,7 +69,10 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get -y install docker-ce docker-ce-cli c
 sudo usermod -aG docker $OPERATIONS_USER
 
 sudo mkdir -p /var/lib/docker-plugins/rclone/cache && \
-    sudo chown root:docker /var/lib/docker-plugins/rclone /var/lib/docker-plugins/rclone/config /var/lib/docker-plugins/rclone/cache && \
+    sudo chown root:docker /var/lib/docker-plugins/rclone \
+        /var/lib/docker-plugins/rclone/config \
+        /var/lib/docker-plugins/rclone/cache \
+        /var/lib/docker-plugins/rclone/config/rclone.conf && \
     sudo chmod 775 /var/lib/docker-plugins/rclone /var/lib/docker-plugins/rclone/config /var/lib/docker-plugins/rclone/cache && \
     sudo chmod 660 /var/lib/docker-plugins/rclone/config/rclone.conf
 
@@ -79,7 +82,7 @@ sudo systemctl enable docker.service && \
 sudo systemctl enable containerd.service
 
 # Info
-echo -e "To configure rclone:\n"
+echo -e "\n\nTo configure rclone:\n"
 echo -e "rclone config --config /var/lib/docker-plugins/rclone/config/rclone.conf\n\n"
 # Print warning message to the user
 echo -e "\n\033[1;93m⚠️  WARNING! ⚠️\033[0m"
