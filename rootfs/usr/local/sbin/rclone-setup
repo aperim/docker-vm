@@ -1,25 +1,57 @@
 #!/usr/bin/env bash
 
+# Retry function: try a command upto $1 times, wait $2 seconds between tries.
+retry() {
+  local -r -i max_attempts="$1"; shift
+  local -r -i sleep_interval="$1"; shift
+  local -i attempt_num=1
+
+  until "$@"; do
+    if (( attempt_num == max_attempts )); then
+      echo "Attempt $attempt_num failed and there are no more attempts left!"
+      return 1
+    else
+      echo "Attempt $attempt_num failed! Trying again in $sleep_interval seconds..."
+      sleep "$sleep_interval"
+    fi
+    attempt_num=$((attempt_num+1))
+    shift
+  done
+}
+
 # Cleanup function to be executed on EXIT
 function cleanup {
-  echo "Cleaning up encrypted config file and tmpfs..."
+  echo "Cleaning up decrypted config file and tmpfs..."
   rm -f /run/rclone-config/rclone.conf
   /sbin/umount /run/rclone-config
 }
 
 # Function for decrypting the rclone config
 function setup {
-  export OP_SERVICE_ACCOUNT_TOKEN=<your-service-account-token>
+  # Check if the secrets file exists
+  if [[ -f "/var/secrets/op" ]]; then
+    # Check if the file is not empty
+    if [[ -s "/var/secrets/op" ]]; then
+      # Read the token from the secrets file
+      export OP_SERVICE_ACCOUNT_TOKEN=$(cat /var/secrets/op)
 
-  # Retrieve the password from 1Password
-  rclone_password=$(op get item 'RcloneConfig' --fields password)
+      # Retry the password retrieval upto 5 times, wait for 5 seconds between tries
+      if retry 5 5 op get item 'RcloneConfig' --fields password; then
+        # Update the password environment variable for rclone service
+        export RCLONE_CONFIG_PASS="${rclone_password}"
 
-  # Update the password environment variable for rclone service
-  export RCLONE_CONFIG_PASS="${rclone_password}"
-
-  # Decrypt the rclone config
-  RCLONE_CONFIG=/var/lib/docker-plugins/rclone/config/rclone.conf rclone config 
-    show --ask-password=false > /run/rclone-config/rclone.conf
+        # Decrypt the rclone config
+        RCLONE_CONFIG=/var/lib/docker-plugins/rclone/config/rclone.conf rclone config 
+        show --ask-password=false > /run/rclone-config/rclone.conf
+      else
+        echo "Failed to retrieve the 'RcloneConfig' item from 1Password. Please check your service token or item name."
+      fi
+    fi
+  fi
+  # If no valid secret found, just copy the config to tmp location
+  if [[ -z "${OP_SERVICE_ACCOUNT_TOKEN}" ]]; then
+    cp /var/lib/docker-plugins/rclone/config/rclone.conf /run/rclone-config/rclone.conf
+  fi
 
   # Start the rclone service
   /usr/bin/rclone serve docker

@@ -18,7 +18,7 @@ if [[ "$OPERATIONS_USER" != "operations" ]]; then
 fi
 
 # Copy all the files from rootfs into /
-cp -R "$TEMP_DIR/rootfs/"* /
+cp -Rvvv "$TEMP_DIR/rootfs/"* /
 
 # Change permissions of scripts in /usr/local/sbin/
 chmod +x /usr/local/sbin/rclone-setup /usr/local/sbin/update-rclone
