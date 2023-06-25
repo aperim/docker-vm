@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+# Cleanup function to be executed on EXIT
+function cleanup {
+  echo "Cleaning up encrypted config file and tmpfs..."
+  rm -f /run/rclone-config/rclone.conf
+  /sbin/umount /run/rclone-config
+}
+
+# Function for decrypting the rclone config
+function setup {
+  export OP_SERVICE_ACCOUNT_TOKEN=<your-service-account-token>
+
+  # Retrieve the password from 1Password
+  rclone_password=$(op get item 'RcloneConfig' --fields password)
+
+  # Update the password environment variable for rclone service
+  export RCLONE_CONFIG_PASS="${rclone_password}"
+
+  # Decrypt the rclone config
+  RCLONE_CONFIG=/var/lib/docker-plugins/rclone/config/rclone.conf rclone config 
+    show --ask-password=false > /run/rclone-config/rclone.conf
+
+  # Start the rclone service
+  /usr/bin/rclone serve docker
+}
+
+# Add traps for cleanup on EXIT, TERM & INT signals
+trap cleanup EXIT TERM INT
+
+# Run the setup function
+setup

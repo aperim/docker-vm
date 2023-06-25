@@ -1,0 +1,13 @@
+[Unit]
+Description=Update rclone
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStartPre=/usr/local/sbin/update-rclone
+ExecStart=/usr/bin/true
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

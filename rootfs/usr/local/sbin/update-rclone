@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Exponential backoff parameters
+base=2
+attempt=0
+max_attempts=5
+
+while (( attempt < max_attempts ))
+do
+  if curl https://rclone.org/install.sh | sudo bash -s beta
+  then
+    # Break the loop if update is successful
+    echo "rclone successfully updated."
+    exit 0
+  else
+    let "attempt++"
+    echo "Update failed. Attempt $attempt/$max_attempts failed."
+    let "delay=base**attempt"
+    echo "Retrying after $delay seconds..."
+    sleep $delay
+  fi
+done
+
+# If we reach here, all attempts to update failed
+echo "rclone update failed."
+exit 0
