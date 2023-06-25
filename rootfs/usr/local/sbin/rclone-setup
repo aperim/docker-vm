@@ -53,8 +53,8 @@ function setup {
     cp /var/lib/docker-plugins/rclone/config/rclone.conf /run/rclone-config/rclone.conf
   fi
 
-  # Start the rclone service
-  /usr/bin/rclone serve docker
+  # Start the rclone service with the specific config file
+  /usr/bin/rclone serve docker --config /run/rclone-config/rclone.conf
 }
 
 # Add traps for cleanup on EXIT, TERM & INT signals
