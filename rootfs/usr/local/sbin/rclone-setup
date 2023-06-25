@@ -47,7 +47,7 @@ function setup {
       export OP_SERVICE_ACCOUNT_TOKEN=$(cat /var/secrets/op)
 
       # Retrieve the password from 1Password
-      rclone_password=$(op get item 'RcloneConfig' --vault 'Servers' --fields password)
+      rclone_password=$(op item get 'Rclone Server Config' --vault 'Servers' --fields password)
 
       # Update the password environment variable for rclone service
       export RCLONE_CONFIG_PASS="${rclone_password}"
