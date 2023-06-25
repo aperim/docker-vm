@@ -81,9 +81,28 @@ sudo mkdir -p /var/secrets \
     sudo chmod 400 /var/secrets/op
 
 sudo systemctl enable update-rclone.service && \
-sudo systemctl enable docker-volume-rclone.service && \
-sudo systemctl enable docker.service && \
-sudo systemctl enable containerd.service
+    sudo systemctl enable docker-volume-rclone.service && \
+    sudo systemctl enable docker.service && \
+    sudo systemctl enable containerd.service && \
+    sudo systemctl start docker.service
+
+# Check and install the rclone plugin for docker
+if ! docker plugin ls | grep rclone; then
+  architecture=$(uname -m)
+  case $architecture in
+    x86_64)
+        variant=amd64
+        ;;
+    aarch64)
+        variant=arm64
+        ;;
+    *)
+        echo "Unsupported architecture: $architecture"
+        exit 1
+        ;;
+  esac
+  docker plugin install rclone/docker-volume-rclone:$variant --alias rclone --grant-all-permissions args="--vfs-cache-mode=full --vfs-read-ahead=512M --allow-other"
+fi
 
 # Info
 echo -e "\n\nTo configure rclone:\n"
