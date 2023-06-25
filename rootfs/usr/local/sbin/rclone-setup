@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Determine location of mount and umount commands
+MOUNT_CMD=$(which mount)
+UMOUNT_CMD=$(which umount)
+
 # Retry function: try a command upto $1 times, wait $2 seconds between tries.
 retry() {
   local -r -i max_attempts="$1"; shift
@@ -23,7 +27,7 @@ retry() {
 function cleanup {
   echo "Cleaning up decrypted config file and tmpfs..."
   rm -f /run/rclone-config/rclone.conf
-  /sbin/umount /run/rclone-config
+  $UMOUNT_CMD /run/rclone-config
 }
 
 # Function for decrypting the rclone config
@@ -36,7 +40,7 @@ function setup {
       export OP_SERVICE_ACCOUNT_TOKEN=$(cat /var/secrets/op)
 
       # Retry the password retrieval upto 5 times, wait for 5 seconds between tries
-      if retry 5 5 op get item 'RcloneConfig' --fields password; then
+      if retry 5 5 rclone_password=$(op item get 'Rclone Server Config' --vault 'Servers' --fields password); then
         # Update the password environment variable for rclone service
         export RCLONE_CONFIG_PASS="${rclone_password}"
 
