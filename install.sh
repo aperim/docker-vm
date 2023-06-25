@@ -68,7 +68,9 @@ sudo curl https://rclone.org/install.sh | sudo bash -s beta
 sudo DEBIAN_FRONTEND=noninteractive apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 1password-cli && \
 sudo usermod -aG docker $OPERATIONS_USER
 
-sudo mkdir -p /var/lib/docker-plugins/rclone/cache && \
+sudo mkdir -p /var/lib/docker-plugins/rclone/cache \
+    /var/lib/docker-plugins/rclone/config && \
+    sudo touch /var/lib/docker-plugins/rclone/config/rclone.conf && \
     sudo chown root:docker /var/lib/docker-plugins/rclone \
         /var/lib/docker-plugins/rclone/config \
         /var/lib/docker-plugins/rclone/cache \
