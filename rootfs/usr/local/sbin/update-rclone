@@ -1,4 +1,5 @@
-#!/usr/bin/env bash
+#!/bin/bash
+
 # Exponential backoff parameters
 base=2
 attempt=0
@@ -6,9 +7,14 @@ max_attempts=5
 
 while (( attempt < max_attempts ))
 do
-  if curl https://rclone.org/install.sh | sudo bash -s beta
-  then
-    # Break the loop if update is successful
+  curl https://rclone.org/install.sh | sudo bash -s beta
+  rc=$?
+  # If update is not needed
+  if [ $rc -eq 3 ]; then
+    echo "No update is needed for rclone."
+    exit 0
+  # If update was successful
+  elif [ $rc -eq 0 ]; then
     echo "rclone successfully updated."
     exit 0
   else
@@ -22,4 +28,4 @@ done
 
 # If we reach here, all attempts to update failed
 echo "rclone update failed."
-exit 0
+exit 1
