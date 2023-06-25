@@ -24,7 +24,6 @@ cp -Rvvv "$TEMP_DIR/rootfs/"* /
 chmod +x /usr/local/sbin/rclone-setup /usr/local/sbin/update-rclone
 chown ${OPERATIONS_USER}:${OPERATIONS_USER} /home/${OPERATIONS_USER}/.ssh/authorized_keys
 chmod 640 /home/${OPERATIONS_USER}/.ssh/authorized_keys
-chmod 400 /var/secrets/op
 
 # Remove temporary directory
 rm -rf "$TEMP_DIR"
@@ -68,15 +67,18 @@ sudo curl https://rclone.org/install.sh | sudo bash -s beta
 sudo DEBIAN_FRONTEND=noninteractive apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 1password-cli && \
 sudo usermod -aG docker $OPERATIONS_USER
 
-sudo mkdir -p /var/lib/docker-plugins/rclone/cache \
+sudo mkdir -p /var/secrets \
+    /var/lib/docker-plugins/rclone/cache \
     /var/lib/docker-plugins/rclone/config && \
-    sudo touch /var/lib/docker-plugins/rclone/config/rclone.conf && \
+    sudo touch /var/lib/docker-plugins/rclone/config/rclone.conf \
+        /var/secrets/op && \
     sudo chown root:docker /var/lib/docker-plugins/rclone \
         /var/lib/docker-plugins/rclone/config \
         /var/lib/docker-plugins/rclone/cache \
         /var/lib/docker-plugins/rclone/config/rclone.conf && \
     sudo chmod 775 /var/lib/docker-plugins/rclone /var/lib/docker-plugins/rclone/config /var/lib/docker-plugins/rclone/cache && \
-    sudo chmod 660 /var/lib/docker-plugins/rclone/config/rclone.conf
+    sudo chmod 660 /var/lib/docker-plugins/rclone/config/rclone.conf && \
+    sudo chmod 400 /var/secrets/op
 
 sudo systemctl enable update-rclone.service && \
 sudo systemctl enable docker-volume-rclone.service && \
