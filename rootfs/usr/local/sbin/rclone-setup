@@ -27,11 +27,18 @@ retry() {
 function cleanup {
   echo "Cleaning up decrypted config file and tmpfs..."
   rm -f /run/rclone-config/rclone.conf
-  $UMOUNT_CMD /run/rclone-config
+  sudo $UMOUNT_CMD /run/rclone-config
 }
 
 # Function for decrypting the rclone config
 function setup {
+
+  # Commands to create the necessary directories and mount tmpfs
+  mkdir -p /run/rclone-config
+  sudo $MOUNT_CMD -t tmpfs -o size=1M tmpfs /run/rclone-config
+  mkdir -p /var/lib/docker-volumes/rclone
+  mkdir -p /var/lib/docker-plugins/rclone/cache
+
   # Check if the secrets file exists
   if [[ -f "/var/secrets/op" ]]; then
     # Check if the file is not empty
@@ -39,17 +46,15 @@ function setup {
       # Read the token from the secrets file
       export OP_SERVICE_ACCOUNT_TOKEN=$(cat /var/secrets/op)
 
-      # Retry the password retrieval upto 5 times, wait for 5 seconds between tries
-      if retry 5 5 rclone_password=$(op item get 'Rclone Server Config' --vault 'Servers' --fields password); then
-        # Update the password environment variable for rclone service
-        export RCLONE_CONFIG_PASS="${rclone_password}"
+      # Retrieve the password from 1Password
+      rclone_password=$(op get item 'RcloneConfig' --vault 'Servers' --fields password)
 
-        # Decrypt the rclone config
-        RCLONE_CONFIG=/var/lib/docker-plugins/rclone/config/rclone.conf rclone config 
-        show --ask-password=false > /run/rclone-config/rclone.conf
-      else
-        echo "Failed to retrieve the 'RcloneConfig' item from 1Password. Please check your service token or item name."
-      fi
+      # Update the password environment variable for rclone service
+      export RCLONE_CONFIG_PASS="${rclone_password}"
+
+      # Decrypt the rclone config
+      RCLONE_CONFIG=/var/lib/docker-plugins/rclone/config/rclone.conf rclone config 
+      show --ask-password=false > /run/rclone-config/rclone.conf
     fi
   fi
   # If no valid secret found, just copy the config to tmp location
@@ -57,7 +62,7 @@ function setup {
     cp /var/lib/docker-plugins/rclone/config/rclone.conf /run/rclone-config/rclone.conf
   fi
 
-  # Start the rclone service with the specific config file
+  # Start the rclone service
   /usr/bin/rclone serve docker --config /run/rclone-config/rclone.conf
 }
 
