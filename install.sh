@@ -23,6 +23,7 @@ cp -Rvvv "$TEMP_DIR/rootfs/"* /
 # Change permissions of scripts in /usr/local/sbin/
 chmod +x /usr/local/sbin/rclone-setup /usr/local/sbin/update-rclone
 chown ${OPERATIONS_USER}:${OPERATIONS_USER} /home/${OPERATIONS_USER}/.ssh/authorized_keys
+chown -R ${OPERATIONS_USER}:${OPERATIONS_USER} /opt/portainer
 chmod 640 /home/${OPERATIONS_USER}/.ssh/authorized_keys
 
 # Remove temporary directory
