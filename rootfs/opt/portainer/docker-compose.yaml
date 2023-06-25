@@ -1,0 +1,48 @@
+version: "3.9"
+x-default-opts: &default-opts
+  logging:
+    driver: gelf
+    options:
+      gelf-address: udp://log001.public-servers.sy3.aperim.net:12201
+      gelf-compression-type: none
+      tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
+      labels: purpose
+
+services:
+  portainer:
+    <<: *default-opts
+    image: portainer/agent
+    restart: unless-stopped
+    environment:
+      CAP_HOST_MANAGEMENT: 1
+    mem_limit: 500m
+    labels:
+      purpose: portainer
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "/var/lib/docker/volumes:/var/lib/docker/volumes"
+      - "/:/host"
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - target: 9001
+        published: 9001
+        protocol: tcp
+        mode: host
+    networks:
+      - portainer_agent
+    read_only: false
+  watchtower:
+    image: index.docker.io/containrrr/watchtower:latest
+    restart: unless-stopped
+    mem_limit: 500m
+    labels:
+      purpose: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/operations/.docker/config.json:/config.json:ro
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    command: "--interval 3600 --cleanup --debug --include-restarting --include-stopped --revive-stopped"
+networks:
+  portainer_agent:
