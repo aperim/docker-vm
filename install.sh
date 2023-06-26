@@ -3,16 +3,44 @@
 # sudo -v ; curl -s https://raw.githubusercontent.com/aperim/docker-vm/main/install.sh | sudo bash
 #
 
+# Function to print messages in color with emoji
+function print_message() {
+  echo -e "\033[1;36m💬  INFO 💬 \033[0m: $1"
+}
+
 # Define repository and temporary directory
 REPO="${REPO:-https://github.com/aperim/docker-vm.git}"
 TEMP_DIR="${TEMP_DIR:-/tmp/docker-vm}"
 OPERATIONS_USER="${OPERATIONS_USER:-operations}"
 VAULT_NAME="${VAULT_NAME:-Servers}"  # Define the 1Password vault name
 
-# Function to print messages in color with emoji
-function print_message() {
-  echo -e "\033[1;36m💬  INFO 💬 \033[0m: $1"
-}
+# An associative array of command names and their corresponding package names
+declare -A dependencies=( ["git"]="git" ["curl"]="curl" ["jq"]="jq" ["awk"]="gawk" ["sed"]="sed" ["hostnamectl"]="systemd")
+
+# Store package names needed to install
+packages_to_install=()
+
+# Check for each command if it exists, if not add it to the install list
+for cmd in ${!dependencies[@]}; do
+    command -v $cmd > /dev/null 2>&1
+    if [[ $? -ne 0 ]]; then
+        echo "$cmd is not installed. Adding it to the install list."
+        packages_to_install+=(${dependencies[$cmd]})
+    fi
+done
+
+# If any packages need to be installed
+if [[ ${#packages_to_install[@]} -ne 0 ]]; then
+    echo "Updating package lists and installing necessary packages..."
+    sudo DEBIAN_FRONTEND=noninteractive apt-get update
+
+    # Install required packages, if fails then print error message and exit with failure status
+    if ! sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ${packages_to_install[@]}; then
+        echo -e "\n\033[1;93m⚠️  WARNING! ⚠️\033[0m"
+        echo -e "\nFailed to install required packages. Please check your network connection and package repositories.\n"
+        exit 1
+    fi
+fi
 
 # Remove temporary directory if exists and clone the repo
 rm -rf "$TEMP_DIR" && git clone "$REPO" "$TEMP_DIR"
