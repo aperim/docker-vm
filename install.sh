@@ -171,7 +171,6 @@ if [[ -n "$op_secret" ]]; then
   chmod 440 /var/secrets/op  # Set the permissions of the file
 
   print_message "1Password service account secret set successfully! 🔐"
-  OP_SERVICE_ACCOUNT_TOKEN=$(cat /var/secrets/op)
 
   # Retrieve the fully qualified domain name
   fqn=$(hostname --fqdn)
@@ -195,7 +194,7 @@ if [[ -n "$op_secret" ]]; then
     fi
   fi
 
-  items="$(op item list --categories 'SERVER' --vault ${VAULT_NAME} --format=json)"
+  items="$(OP_SERVICE_ACCOUNT_TOKEN=$(cat /var/secrets/op) op item list --categories 'SERVER' --vault ${VAULT_NAME} --format=json)"
   
   if [[ -z "$items" ]]; then
     echo "⚠️  WARNING! No items found in the 1Password vault."
@@ -209,7 +208,7 @@ if [[ -n "$op_secret" ]]; then
     exit 1
   fi
 
-  server_item_data="$(echo "${server_item}" | op item get - --fields username,password --format=json --vault ${VAULT_NAME})"
+  server_item_data="$(echo "${server_item}" | OP_SERVICE_ACCOUNT_TOKEN=$(cat /var/secrets/op) op item get - --fields username,password --format=json --vault ${VAULT_NAME})"
   
   if [[ -z "$server_item_data" ]]; then
     echo "⚠️  WARNING! No server item data found in 1Password."
