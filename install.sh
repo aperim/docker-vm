@@ -159,7 +159,7 @@ print_message "To configure rclone, run the following command:\nrclone config --
 
 # Prompt the user for the 1Password service account secret
 echo -n "Please paste the 1Password service account secret: "
-read -s op_secret
+read -s op_secret < /dev/tty
 echo ""
 
 # Check if the user provided a secret
