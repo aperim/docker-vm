@@ -7,6 +7,12 @@
 REPO="${REPO:-https://github.com/aperim/docker-vm.git}"
 TEMP_DIR="${TEMP_DIR:-/tmp/docker-vm}"
 OPERATIONS_USER="${OPERATIONS_USER:-operations}"
+VAULT_NAME="${VAULT_NAME:-Servers}"  # Define the 1Password vault name
+
+# Function to print messages in color with emoji
+function print_message() {
+  echo -e "\033[1;36m💬  INFO 💬 \033[0m: $1"
+}
 
 # Remove temporary directory if exists and clone the repo
 rm -rf "$TEMP_DIR" && git clone "$REPO" "$TEMP_DIR"
@@ -35,10 +41,25 @@ rm -Rf /etc/apt/keyrings/docker.gpg \
     /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg \
     /etc/apt/sources.list.d/docker.list
 
-echo "Scaffolding complete. Installing packages"
+# Fetch the search domain provided by DHCP.
+search_domain=$(awk '/^search/ { print $2 }' /etc/resolv.conf)
+
+# Check if a search domain was found...
+if [[ -n "$search_domain" ]]; then
+    # Fetch the short version of the hostname
+    short_hostname=$(hostname -s)
+    
+    # Set the hostname to be the combination of the short hostname and the search domain
+    new_hostname="${short_hostname}.${search_domain}"
+    sudo hostnamectl set-hostname "$new_hostname"
+    
+    print_message "Host updated to the new hostname: $new_hostname 👍"
+fi
+
+print_message "Scaffolding complete. Installing packages"
 
 sudo apt-get -y update && \
-    sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ca-certificates curl gnupg
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ca-certificates curl gnupg jq
 
 curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
     sudo gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg
@@ -106,10 +127,81 @@ if ! docker plugin ls | grep rclone; then
 fi
 
 # Info
-echo -e "\n\nTo configure rclone:\n"
-echo -e "rclone config --config /var/lib/docker-plugins/rclone/config/rclone.conf\n\n"
-# Print warning message to the user
-echo -e "\n\033[1;93m⚠️  WARNING! ⚠️\033[0m"
-echo -e "\nYOU MUST REPLACE THE TOKEN IN /var/secrets/op WITH A VALID TOKEN."
-echo -e "THIS IS A CRITICAL STEP 🔑 \n"
+print_message "To configure rclone, run the following command:\nrclone config --config /var/lib/docker-plugins/rclone/config/rclone.conf\n"
+
+# Prompt the user for the 1Password service account secret
+echo -n "Please paste the 1Password service account secret: "
+read -s op_secret
+echo ""
+
+# Check if the user provided a secret
+if [[ -n "$op_secret" ]]; then
+  echo "$op_secret" > /var/secrets/op  # Write the secret to the file
+  chown root:docker /var/secrets/op  # Change the owner of the file
+  chmod 400 /var/secrets/op  # Set the permissions of the file
+
+  print_message "1Password service account secret set successfully! 🔐"
+
+  # Retrieve the fully qualified domain name
+  fqn=$(hostname --fqdn)
+
+  # Check if an FQDN was returned, if not use hostname -A
+  if [[ "$fqn" == "$(hostname -s)" ]]; then
+    # Extract all possible FQDNs
+    possible_fqdns=$(hostname -A)
+    host_short_name=$(hostname -s)
+
+    # Iterate over possible FQDNs, select first valid one
+    for possible_fqdn in $possible_fqdns; do
+    if [[ $possible_fqdn == "$host_short_name".* && $possible_fqdn != "$host_short_name" ]]; then
+        fqn=$possible_fqdn
+        break
+    fi
+    done
+
+    # If we didn't find something, record the error and suggest manual intervention
+    if [[ -z "$fqn" || "$fqn" == "$host_short_name" ]]; then
+    echo -e "\n\033[1;93m⚠️  WARNING! ⚠️ \033[0m"
+    echo -e "\nUnable to determine FQDN. Please set it up manually! \n"
+    exit 1
+    fi
+  fi
+
+  # List items in the 1Password vault
+  items=$(op list items --vault=$VAULT_NAME)
+
+  # Assuming the items are JSON, and each item has a "name" property
+  server_item=$(echo "$items" | jq -r --arg fqn "$fqn" '.[] | select(.name == $fqn)')
+
+  # Check if an item with OPERATIONS_USER exists for the given server
+  operations_user=$(echo "$server_item" | jq -r --arg user "$OPERATIONS_USER" '.details.fields[] | select(.name == "username" and .value == $user)')
+
+  if [[ -n "$operations_user" ]]; then
+    # Retrieve the password
+    password=$(echo "$operations_user" | jq -r '.value')
+
+    # Update the OPERATIONS_USER password
+    echo "$OPERATIONS_USER:$password" | chpasswd
+
+    print_message "OPERATIONS_USER password updated from 1Password! 👍"
+  else
+    echo -e "\n\033[1;93m⚠️  WARNING! ⚠️\033[0m"
+    echo -e "\nNo OPERATIONS_USER found in the 1Password item for server $fqn 😔\n"
+  fi
+else
+  echo -e "\n\033[1;93m⚠️  WARNING! ⚠️\033[0m"
+  echo -e "\nYOU MUST REPLACE THE TOKEN IN /var/secrets/op WITH A VALID TOKEN. THIS IS A CRITICAL STEP 🔑 \n"
+  exit 1
+fi
+
+# Disable password SSH login
+if grep -q "PasswordAuthentication yes" /etc/ssh/sshd_config; then
+  sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config
+  print_message "Password SSH login disabled! 🔒"
+else
+  print_message "Password SSH login was already disabled."
+fi
+
+print_message "All done!"
+
 exit 0
