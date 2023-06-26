@@ -177,18 +177,26 @@ fi
 # Info
 print_message "To configure rclone, run the following command:\nrclone config --config /var/lib/docker-plugins/rclone/config/rclone.conf\n"
 
-# Prompt the user for the 1Password service account secret
-echo -n "Please paste the 1Password service account secret: "
-read -s op_secret < /dev/tty
-echo ""
-# Check if the user provided a secret
-if [[ -n "$op_secret" ]]; then
-  echo "$op_secret" > /var/secrets/op  # Write the secret to the file
-  chown root:docker /var/secrets/op  # Change the owner of the file
-  chmod 440 /var/secrets/op  # Set the permissions of the file
 
-  print_message "1Password service account secret set successfully! 🔐"
+# Check if /var/secrets/op is empty
+if [ ! -s /var/secrets/op ]
+then
+    # Prompt the user for the 1Password service account secret
+    echo -n "Please paste the 1Password service account secret: "
+    read -s op_secret < /dev/tty
+    echo ""
+    # Write the secret in to the file only if a secret was provided
+    if [[ -n "$op_secret" ]]; then
+        echo "$op_secret" > /var/secrets/op
+        chown root:docker /var/secrets/op  # Change the owner of the file
+        chmod 440 /var/secrets/op  # Set the permissions of the file
+    fi
+else
+    print_message "1Password service account secret already exists, skipping the update."
+fi
 
+# Check if 1Password has a secret
+if [ ! -s /var/secrets/op ]; then
   # Retrieve the fully qualified domain name
   fqn=$(hostname --fqdn)
 
