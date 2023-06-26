@@ -118,7 +118,22 @@ apt-get update
 
 curl https://rclone.org/install.sh | bash -s beta
 
-DEBIAN_FRONTEND=noninteractive apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 1password-cli && \
+DEBIAN_FRONTEND=noninteractive apt-get -y install \
+    1password-cli \
+    containerd.io \
+    docker-buildx-plugin \
+    docker-ce \
+    docker-ce-cli \
+    docker-compose-plugin \
+    htop \
+    libarchive-tools \
+    open-vm-tools \
+    rsyslog \
+    unzip \
+    wget \
+    zsh
+chsh -s $(which zsh) $OPERATIONS_USER
+su $OPERATIONS_USER -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" --unattended
 usermod -aG docker $OPERATIONS_USER
 mkdir -p /var/secrets \
     /var/lib/docker-plugins/rclone/cache \
@@ -133,11 +148,13 @@ mkdir -p /var/secrets \
     chmod 660 /var/lib/docker-plugins/rclone/config/rclone.conf && \
     chmod 440 /var/secrets/op
 
-systemctl enable update-rclone.service && \
-    systemctl enable docker-volume-rclone.service && \
-    systemctl enable docker.service && \
-    systemctl enable containerd.service && \
-    systemctl start docker.service
+systemctl enable rsyslog
+systemctl start rsyslog
+systemctl enable update-rclone.service
+systemctl enable docker-volume-rclone.service
+systemctl enable docker.service
+systemctl enable containerd.service
+systemctl start docker.service
 
 # Check and install the rclone plugin for docker
 if ! docker plugin ls | grep rclone &>/dev/null; then
