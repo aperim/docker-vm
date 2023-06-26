@@ -118,7 +118,22 @@ apt-get update
 
 curl https://rclone.org/install.sh | bash -s beta
 
-DEBIAN_FRONTEND=noninteractive apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 1password-cli && \
+DEBIAN_FRONTEND=noninteractive apt-get -y install \
+    1password-cli \
+    containerd.io \
+    docker-buildx-plugin \
+    docker-ce \
+    docker-ce-cli \
+    docker-compose-plugin \
+    htop \
+    libarchive-tools \
+    open-vm-tools \
+    rsyslog \
+    unzip \
+    wget \
+    zsh
+chsh -s $(which zsh) $OPERATIONS_USER
+su $OPERATIONS_USER -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" --unattended
 usermod -aG docker $OPERATIONS_USER
 mkdir -p /var/secrets \
     /var/lib/docker-plugins/rclone/cache \
@@ -133,11 +148,13 @@ mkdir -p /var/secrets \
     chmod 660 /var/lib/docker-plugins/rclone/config/rclone.conf && \
     chmod 440 /var/secrets/op
 
-systemctl enable update-rclone.service && \
-    systemctl enable docker-volume-rclone.service && \
-    systemctl enable docker.service && \
-    systemctl enable containerd.service && \
-    systemctl start docker.service
+systemctl enable rsyslog
+systemctl start rsyslog
+systemctl enable update-rclone.service
+systemctl enable docker-volume-rclone.service
+systemctl enable docker.service
+systemctl enable containerd.service
+systemctl start docker.service
 
 # Check and install the rclone plugin for docker
 if ! docker plugin ls | grep rclone &>/dev/null; then
@@ -171,7 +188,6 @@ if [[ -n "$op_secret" ]]; then
   chmod 440 /var/secrets/op  # Set the permissions of the file
 
   print_message "1Password service account secret set successfully! 🔐"
-  OP_SERVICE_ACCOUNT_TOKEN=$(cat /var/secrets/op)
 
   # Retrieve the fully qualified domain name
   fqn=$(hostname --fqdn)
@@ -195,7 +211,7 @@ if [[ -n "$op_secret" ]]; then
     fi
   fi
 
-  items="$(op item list --categories 'SERVER' --vault ${VAULT_NAME} --format=json)"
+  items="$(OP_SERVICE_ACCOUNT_TOKEN=$(cat /var/secrets/op) op item list --categories 'SERVER' --vault ${VAULT_NAME} --format=json)"
   
   if [[ -z "$items" ]]; then
     echo "⚠️  WARNING! No items found in the 1Password vault."
@@ -209,7 +225,7 @@ if [[ -n "$op_secret" ]]; then
     exit 1
   fi
 
-  server_item_data="$(echo "${server_item}" | op item get - --fields username,password --format=json --vault ${VAULT_NAME})"
+  server_item_data="$(echo "${server_item}" | OP_SERVICE_ACCOUNT_TOKEN=$(cat /var/secrets/op) op item get - --fields username,password --format=json --vault ${VAULT_NAME})"
   
   if [[ -z "$server_item_data" ]]; then
     echo "⚠️  WARNING! No server item data found in 1Password."
