@@ -1,7 +1,13 @@
-#!/usr/bin/env bash
+#!/usr/bin/env bash -e
 #
 # sudo -v ; curl -s https://raw.githubusercontent.com/aperim/docker-vm/main/install.sh | sudo bash
 #
+
+# Ensure the script is being run as root
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root"
+   exit 1
+fi
 
 # Function to print messages in color with emoji
 function print_message() {
@@ -15,7 +21,7 @@ OPERATIONS_USER="${OPERATIONS_USER:-operations}"
 VAULT_NAME="${VAULT_NAME:-Servers}"  # Define the 1Password vault name
 
 # An associative array of command names and their corresponding package names
-declare -A dependencies=( ["git"]="git" ["curl"]="curl" ["jq"]="jq" ["awk"]="gawk" ["sed"]="sed" ["hostnamectl"]="systemd")
+declare -A dependencies=( ["git"]="git" ["curl"]="curl" ["jq"]="jq" ["awk"]="gawk" ["sed"]="sed" ["hostnamectl"]="systemd" ["vi"]="vim-scripts" )
 
 # Store package names needed to install
 packages_to_install=()
@@ -28,22 +34,21 @@ for cmd in ${!dependencies[@]}; do
         packages_to_install+=(${dependencies[$cmd]})
     fi
 done
-
 # If any packages need to be installed
 if [[ ${#packages_to_install[@]} -ne 0 ]]; then
     echo "Updating package lists and installing necessary packages..."
-    sudo DEBIAN_FRONTEND=noninteractive apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get update
 
     # Install required packages, if fails then print error message and exit with failure status
-    if ! sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ${packages_to_install[@]}; then
+    if ! DEBIAN_FRONTEND=noninteractive apt-get install -y ${packages_to_install[@]}; then
         echo -e "\n\033[1;93m⚠️  WARNING! ⚠️\033[0m"
         echo -e "\nFailed to install required packages. Please check your network connection and package repositories.\n"
         exit 1
     fi
 fi
 
-# Remove temporary directory if exists and clone the repo
-rm -rf "$TEMP_DIR" && git clone "$REPO" "$TEMP_DIR"
+# Remove the temporary directory if it exists, and clone the repo
+rm -rf "$TEMP_DIR"; git clone "$REPO" "$TEMP_DIR"
 
 # If OPERATIONS_USER is not "operations"
 if [[ "$OPERATIONS_USER" != "operations" ]]; then
@@ -68,7 +73,6 @@ rm -Rf /etc/apt/keyrings/docker.gpg \
     /etc/debsig/policies/AC2D62742012EA22/1password.pol \
     /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg \
     /etc/apt/sources.list.d/docker.list
-
 # Fetch the search domain provided by DHCP.
 search_domain=$(awk '/^search/ { print $2 }' /etc/resolv.conf)
 
@@ -79,73 +83,72 @@ if [[ -n "$search_domain" ]]; then
     
     # Set the hostname to be the combination of the short hostname and the search domain
     new_hostname="${short_hostname}.${search_domain}"
-    sudo hostnamectl set-hostname "$new_hostname"
+    hostnamectl set-hostname "$new_hostname"
     
     print_message "Host updated to the new hostname: $new_hostname 👍"
 fi
 
 print_message "Scaffolding complete. Installing packages"
 
-sudo apt-get -y update && \
-    sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ca-certificates curl gnupg jq
+apt-get -y update && \
+    DEBIAN_FRONTEND=noninteractive apt-get -y install ca-certificates curl gnupg jq
 
 curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
-    sudo gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg
+    gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg
 
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | \
-    sudo tee /etc/apt/sources.list.d/1password.list
+    tee /etc/apt/sources.list.d/1password.list
 
-sudo mkdir -p /etc/debsig/policies/AC2D62742012EA22/
+mkdir -p /etc/debsig/policies/AC2D62742012EA22/
 
 curl -sS https://downloads.1password.com/linux/debian/debsig/1password.pol | \
-    sudo tee /etc/debsig/policies/AC2D62742012EA22/1password.pol
+    tee /etc/debsig/policies/AC2D62742012EA22/1password.pol
 
-sudo mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22
+mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22
 
 curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
-    sudo gpg --dearmor --output /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg
+    gpg --dearmor --output /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg
 
-sudo install -m 0755 -d /etc/apt/keyrings && \
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
-    sudo chmod a+r /etc/apt/keyrings/docker.gpg && \
-    echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+    chmod a+r /etc/apt/keyrings/docker.gpg && \
+    echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-sudo apt-get update
+apt-get update
 
-sudo curl https://rclone.org/install.sh | sudo bash -s beta
+curl https://rclone.org/install.sh | bash -s beta
 
-sudo DEBIAN_FRONTEND=noninteractive apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 1password-cli && \
-sudo usermod -aG docker $OPERATIONS_USER
-
-sudo mkdir -p /var/secrets \
+DEBIAN_FRONTEND=noninteractive apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 1password-cli && \
+usermod -aG docker $OPERATIONS_USER
+mkdir -p /var/secrets \
     /var/lib/docker-plugins/rclone/cache \
     /var/lib/docker-plugins/rclone/config && \
-    sudo touch /var/lib/docker-plugins/rclone/config/rclone.conf \
+    touch /var/lib/docker-plugins/rclone/config/rclone.conf \
         /var/secrets/op && \
-    sudo chown root:docker /var/lib/docker-plugins/rclone \
+    chown root:docker /var/lib/docker-plugins/rclone \
         /var/lib/docker-plugins/rclone/config \
         /var/lib/docker-plugins/rclone/cache \
         /var/lib/docker-plugins/rclone/config/rclone.conf && \
-    sudo chmod 775 /var/lib/docker-plugins/rclone /var/lib/docker-plugins/rclone/config /var/lib/docker-plugins/rclone/cache && \
-    sudo chmod 660 /var/lib/docker-plugins/rclone/config/rclone.conf && \
-    sudo chmod 400 /var/secrets/op
+    chmod 775 /var/lib/docker-plugins/rclone /var/lib/docker-plugins/rclone/config /var/lib/docker-plugins/rclone/cache && \
+    chmod 660 /var/lib/docker-plugins/rclone/config/rclone.conf && \
+    chmod 440 /var/secrets/op
 
-sudo systemctl enable update-rclone.service && \
-    sudo systemctl enable docker-volume-rclone.service && \
-    sudo systemctl enable docker.service && \
-    sudo systemctl enable containerd.service && \
-    sudo systemctl start docker.service
+systemctl enable update-rclone.service && \
+    systemctl enable docker-volume-rclone.service && \
+    systemctl enable docker.service && \
+    systemctl enable containerd.service && \
+    systemctl start docker.service
 
 # Check and install the rclone plugin for docker
-if ! docker plugin ls | grep rclone; then
+if ! docker plugin ls | grep rclone &>/dev/null; then
   architecture=$(uname -m)
   case $architecture in
     x86_64)
         variant=amd64
-        ;;
+          ;;
     aarch64)
         variant=arm64
-        ;;
+          ;;
     *)
         echo "Unsupported architecture: $architecture"
         exit 1
@@ -161,65 +164,69 @@ print_message "To configure rclone, run the following command:\nrclone config --
 echo -n "Please paste the 1Password service account secret: "
 read -s op_secret < /dev/tty
 echo ""
-
 # Check if the user provided a secret
 if [[ -n "$op_secret" ]]; then
   echo "$op_secret" > /var/secrets/op  # Write the secret to the file
   chown root:docker /var/secrets/op  # Change the owner of the file
-  chmod 400 /var/secrets/op  # Set the permissions of the file
+  chmod 440 /var/secrets/op  # Set the permissions of the file
 
   print_message "1Password service account secret set successfully! 🔐"
+  OP_SERVICE_ACCOUNT_TOKEN=$(cat /var/secrets/op)
 
   # Retrieve the fully qualified domain name
   fqn=$(hostname --fqdn)
 
   # Check if an FQDN was returned, if not use hostname -A
   if [[ "$fqn" == "$(hostname -s)" ]]; then
-    # Extract all possible FQDNs
     possible_fqdns=$(hostname -A)
     host_short_name=$(hostname -s)
 
-    # Iterate over possible FQDNs, select first valid one
     for possible_fqdn in $possible_fqdns; do
-    if [[ $possible_fqdn == "$host_short_name".* && $possible_fqdn != "$host_short_name" ]]; then
+      if [[ $possible_fqdn == "$host_short_name".* && $possible_fqdn != "$host_short_name" ]]; then
         fqn=$possible_fqdn
         break
-    fi
+      fi
     done
 
-    # If we didn't find something, record the error and suggest manual intervention
     if [[ -z "$fqn" || "$fqn" == "$host_short_name" ]]; then
-    echo -e "\n\033[1;93m⚠️  WARNING! ⚠️ \033[0m"
-    echo -e "\nUnable to determine FQDN. Please set it up manually! \n"
-    exit 1
+      echo -e "\n\033[1;93m⚠️  WARNING! ⚠️ \033[0m"
+      echo -e "\nUnable to determine FQDN. Please set it up manually! \n"
+      exit 1
     fi
   fi
 
-  # List items in the 1Password vault
-  items=$(op list items --vault=$VAULT_NAME)
+  items="$(op item list --categories 'SERVER' --vault ${VAULT_NAME} --format=json)"
+  
+  if [[ -z "$items" ]]; then
+    echo "⚠️  WARNING! No items found in the 1Password vault."
+    exit 1
+  fi
 
-  # Assuming the items are JSON, and each item has a "name" property
-  server_item=$(echo "$items" | jq -r --arg fqn "$fqn" '.[] | select(.name == $fqn)')
+  server_item="$(echo "$items" | jq -r --arg fqn "$fqn" '.[] | select(.title == $fqn)')"
 
-  # Check if an item with OPERATIONS_USER exists for the given server
-  operations_user=$(echo "$server_item" | jq -r --arg user "$OPERATIONS_USER" '.details.fields[] | select(.name == "username" and .value == $user)')
+  if [[ -z "$server_item" ]]; then
+    echo "⚠️  WARNING! No server item found in the 1Password."
+    exit 1
+  fi
 
-  if [[ -n "$operations_user" ]]; then
-    # Retrieve the password
-    password=$(echo "$operations_user" | jq -r '.value')
+  server_item_data="$(echo "${server_item}" | op item get - --fields username,password --format=json --vault ${VAULT_NAME})"
+  
+  if [[ -z "$server_item_data" ]]; then
+    echo "⚠️  WARNING! No server item data found in 1Password."
+    exit 1
+  fi
 
-    # Update the OPERATIONS_USER password
+  # Check if username matches OPERATIONS_USER
+  username=$(echo "$server_item_data" | jq -r '.[] | select(.id == "username") | .value')
+
+  if [[ "$OPERATIONS_USER" == "$username" ]]; then
+    password=$(echo "$server_item_data" | jq -r 'map(select(.id == "password")) | .[0] | .value')
     echo "$OPERATIONS_USER:$password" | chpasswd
-
-    print_message "OPERATIONS_USER password updated from 1Password! 👍"
+    print_message "${OPERATIONS_USER} password updated from 1Password! 👍"
   else
     echo -e "\n\033[1;93m⚠️  WARNING! ⚠️\033[0m"
-    echo -e "\nNo OPERATIONS_USER found in the 1Password item for server $fqn 😔\n"
+    echo -e "\nNo ${OPERATIONS_USER} found in the 1Password item for server $fqn 😔\n"
   fi
-else
-  echo -e "\n\033[1;93m⚠️  WARNING! ⚠️\033[0m"
-  echo -e "\nYOU MUST REPLACE THE TOKEN IN /var/secrets/op WITH A VALID TOKEN. THIS IS A CRITICAL STEP 🔑 \n"
-  exit 1
 fi
 
 # Disable password SSH login
@@ -231,5 +238,4 @@ else
 fi
 
 print_message "All done!"
-
 exit 0
