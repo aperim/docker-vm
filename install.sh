@@ -133,7 +133,7 @@ DEBIAN_FRONTEND=noninteractive apt-get -y install \
     wget \
     zsh
 chsh -s $(which zsh) $OPERATIONS_USER
-su $OPERATIONS_USER -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" --unattended
+su - $OPERATIONS_USER -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh) --unattended"
 usermod -aG docker $OPERATIONS_USER
 mkdir -p /var/secrets \
     /var/lib/docker-plugins/rclone/cache \
@@ -196,7 +196,7 @@ else
 fi
 
 # Check if 1Password has a secret
-if [ ! -s /var/secrets/op ]; then
+if [ -s /var/secrets/op ]; then
   # Retrieve the fully qualified domain name
   fqn=$(hostname --fqdn)
 
