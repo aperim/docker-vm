@@ -56,6 +56,15 @@ if [[ "$OPERATIONS_USER" != "operations" ]]; then
   mv "$TEMP_DIR/rootfs/home/operations" "$TEMP_DIR/rootfs/home/${OPERATIONS_USER}"
 fi
 
+# Fix DNS resolution
+echo "DNSStubListener=no" | tee -a /etc/systemd/resolved.conf && \
+  systemctl disable systemd-resolved.service && \
+  systemctl stop systemd-resolved && \
+  rm /etc/resolv.conf && \
+  ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf && \
+  systemctl enable systemd-resolved && \
+  systemctl start systemd-resolved
+
 # Copy all the files from rootfs into /
 cp -Rvvv "$TEMP_DIR/rootfs/"* /
 
