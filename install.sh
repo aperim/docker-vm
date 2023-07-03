@@ -286,8 +286,7 @@ print_message "To configure rclone, run the following command:\nrclone config --
 # Check if /var/secrets/op is empty
 if [ ! -s /var/secrets/op ]; then
     # Prompt the user for the 1Password service account secret
-    echo -e "Please paste the 1Password service account secret: \c"
-    read -s op_secret
+    read -sp "Please paste the 1Password service account secret: " op_secret </dev/tty
     echo
 
     # Write the secret into the file only if a secret was provided
