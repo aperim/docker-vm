@@ -53,7 +53,7 @@ fi
 
 # Check for any upgradeable packages
 apt-get -y update > /dev/null
-upgradeable=$(apt list --upgradable 2> /dev/null)
+upgradeable=$(apt list --upgradable 2>/dev/null | tail -n +2)
 if [[ -n "$upgradeable" ]]; then
     print_error "There are upgradeable packages that need to be upgraded before running this script. Please run 'apt-get -y full-upgrade' and reboot the system before proceeding."
 fi
