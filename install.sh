@@ -208,6 +208,7 @@ DEBIAN_FRONTEND=noninteractive apt-get -y install \
     htop \
     libarchive-tools \
     open-vm-tools \
+    qemu-guest-agent \
     rsyslog \
     unzip \
     wget \
