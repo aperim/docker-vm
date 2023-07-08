@@ -151,7 +151,7 @@ print_message "Scaffolding complete. Installing packages"
 apt-get -y update || print_error "Failed to run apt-get update"
 
 # Install packages
-DEBIAN_FRONTEND=noninteractive apt-get -y install ca-certificates curl gnupg jq || print_error "Failed to install packages"
+DEBIAN_FRONTEND=noninteractive apt-get -y install ca-certificates curl gnupg jq unzip || print_error "Failed to install packages"
 
 # Clean-up
 rm -rf "$TEMP_DIR"
