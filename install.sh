@@ -195,7 +195,7 @@ install -m 0755 -d /etc/apt/keyrings && \
 apt-get update || print_error "Failed to run 'apt-get update'"
 
 # Install Rclone
-curl https://rclone.org/install.sh | bash -s beta
+curl https://rclone.org/install.sh | bash -s beta || print_error "Failed to install Rclone"
 
 # Install prerequisite packages
 DEBIAN_FRONTEND=noninteractive apt-get -y install \
