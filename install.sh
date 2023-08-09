@@ -191,6 +191,15 @@ install -m 0755 -d /etc/apt/keyrings && \
     chmod a+r /etc/apt/keyrings/docker.gpg && \
     safe_add_line_to_file "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" /etc/apt/sources.list.d/docker.list
 
+# Get the version of the Ubuntu release
+UBUNTU_VERSION=$(. /etc/os-release && echo "$VERSION_CODENAME")
+
+# Check if the Docker repository has a dist for the Ubuntu release
+if ! curl --silent --head --fail "https://download.docker.com/linux/ubuntu/dists/$UBUNTU_VERSION" >/dev/null; then
+  # If not, replace the version in the Docker apt sources file with 'lunar'
+  sed -i "s/${UBUNTU_VERSION}/lunar/g" /etc/apt/sources.list.d/docker.list
+fi
+
 # Update apt-get
 apt-get update || print_error "Failed to run 'apt-get update'"
 
