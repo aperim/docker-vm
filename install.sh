@@ -64,6 +64,12 @@ TEMP_DIR="${TEMP_DIR:-/tmp/docker-vm}"
 OPERATIONS_USER="${OPERATIONS_USER:-operations}"
 VAULT_NAME="${VAULT_NAME:-Servers}"  # Define the 1Password vault name
 
+# Remove packages
+DEBIAN_FRONTEND=noninteractive apt-get -y remove \
+    1password* \
+    containerd.io \
+    docker-*
+
 # Create operations user and group if they doesn't exist
 create_operations_user
 
