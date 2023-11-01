@@ -108,7 +108,10 @@ if ! grep -q "^DNSStubListener=no" /etc/systemd/resolved.conf; then
     echo "DNSStubListener=no" >> /etc/systemd/resolved.conf || print_error "Failed to append configuration"
 fi
 rm -f /etc/resolv.conf
+cd /etc
+ln -s ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 # Restart systemd-resolved
+sudo systemctl restart systemd-networkd
 systemctl restart systemd-resolved
 print_message "DNSStubListener has been disabled and systemd-resolved has been restarted"
 
