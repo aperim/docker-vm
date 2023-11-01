@@ -108,8 +108,11 @@ if ! grep -q "^DNSStubListener=no" /etc/systemd/resolved.conf; then
     echo "DNSStubListener=no" >> /etc/systemd/resolved.conf || print_error "Failed to append configuration"
 fi
 rm -f /etc/resolv.conf
+original_dir=$(pwd)
 cd /etc
 ln -s ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+cd "$original_dir"
+
 # Restart systemd-resolved
 sudo systemctl restart systemd-networkd
 systemctl restart systemd-resolved
