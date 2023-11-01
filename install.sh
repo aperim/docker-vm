@@ -100,17 +100,17 @@ if [[ ${#packages_to_install[@]} -ne 0 ]]; then
 fi
 
 # Check if DNSStubListener is yes
-if grep -q "DNSStubListener=yes" /etc/systemd/resolved.conf; then
-    # Disable the stub resolver
-    sed -i 's/DNSStubListener=yes/DNSStubListener=no/' /etc/systemd/resolved.conf
+# Checking and commenting out any uncommented "DNSStubListener=yes" lines
+sed -i 's/^\(DNSStubListener=yes\)/#\1/' /etc/systemd/resolved.conf || print_error "Failed to edit configuration"
 
-    # Restart systemd-resolved
-    systemctl restart systemd-resolved
-
-    print_message "DNSStubListener has been disabled and systemd-resolved has been restarted"
-else
-    print_message "DNSStubListener already disabled"
+# Now, checking if "DNSStubListener=no" is set, if not, it will be added
+if ! grep -q "^DNSStubListener=no" /etc/systemd/resolved.conf; then
+    echo "DNSStubListener=no" >> /etc/systemd/resolved.conf || print_error "Failed to append configuration"
 fi
+rm -f /etc/resolv.conf
+# Restart systemd-resolved
+systemctl restart systemd-resolved
+print_message "DNSStubListener has been disabled and systemd-resolved has been restarted"
 
 # Remove the temporary directory if it exists, and clone the repo
 rm -rf "$TEMP_DIR"
