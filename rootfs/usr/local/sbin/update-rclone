@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
 #
-# Updates rclone to the latest beta version. If the update is not necessary or fails
-# after a number of attempts, the script exits cleanly to avoid cascading service
-# failures when rclone is already installed.
+# Updates rclone to the latest beta version using the modified install script which forces HTTP/1.1.
+# If the update is not necessary or fails after a number of attempts, the script exits cleanly to avoid
+# cascading service failures when rclone is already installed.
 
 # Exponential backoff parameters
 BASE=2
 ATTEMPT=0
 MAX_ATTEMPTS=5
+
+# Cleanup hook
+cleanup() {
+  rm -f "$TMPFILE"
+}
+trap cleanup EXIT
 
 # Function to check if rclone is installed and return version
 function check_rclone_installed {
@@ -21,8 +27,17 @@ function check_rclone_installed {
 
 # Main update loop with exponential backoff
 while (( ATTEMPT < MAX_ATTEMPTS )); do
-  # Install or update rclone from the install script provided by rclone.org
-  curl https://rclone.org/install.sh | sudo bash -s beta
+  # Create a temp file
+  TMPFILE=$(mktemp)
+
+  # Download the install.sh script into temp file
+  curl -s https://rclone.org/install.sh -o "$TMPFILE"
+
+  # Modify the install.sh script to force the use of HTTP/1.1 protocol
+  sed -i 's/curl /curl --http1.1 /g' "$TMPFILE"
+
+  # Install or update rclone using the modified script
+  sudo bash "$TMPFILE" beta
   RC=$?  # Capture the exit code of the install/update command
 
   # Exit code 3 indicates no update is needed
