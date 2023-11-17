@@ -239,9 +239,9 @@ add_docker_repository
 apt-get update || print_error "Failed to run 'apt-get update'"
 
 # Install Rclone
-curl https://rclone.org/install.sh | bash -s beta
+/usr/local/sbin/update-rclone
 retVal=$?
-if [[ $retVal -ne 3 && $retVal -ne 0 ]]; then
+if [[ $retVal -ne 0 ]]; then
   print_error "Failed to install Rclone"
 fi
 
