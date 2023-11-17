@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Updates rclone to the latest beta version using the modified install script which forces HTTP/1.1.
+# Updates rclone to the latest version using the modified install script which uses the GitHub mirror.
 # If the update is not necessary or fails after a number of attempts, the script exits cleanly to avoid
 # cascading service failures when rclone is already installed.
 
@@ -27,17 +27,21 @@ function check_rclone_installed {
 
 # Main update loop with exponential backoff
 while (( ATTEMPT < MAX_ATTEMPTS )); do
-  # Create a temp file
+  # Create a temp file to download the install script
   TMPFILE=$(mktemp)
 
-  # Download the install.sh script into temp file
+  # Download the install.sh script into the temp file
   curl -s https://rclone.org/install.sh -o "$TMPFILE"
 
-  # Modify the install.sh script to force the use of HTTP/1.1 protocol
-  sed -i 's/curl /curl --http1.1 /g' "$TMPFILE"
+  # Modify the install.sh script to replace the hardcoded download URL
+  sed -i "s~curl -OfsS~curl -OfsSL~g" "$TMPFILE"
+  sed -i "s~download_link=\"https://downloads.rclone.org/~download_link=\"https://github.com/rclone/rclone/releases/download/v\${current_version#rclone v}/~g" "$TMPFILE"
+  sed -i "s~rclone-current-\${OS}-\${OS_type}\.zip~rclone-v\${current_version#rclone v}-\${OS}-\${OS_type}.zip~g" "$TMPFILE"
 
+  cat "$TMPFILE"
+  
   # Install or update rclone using the modified script
-  sudo bash "$TMPFILE" beta
+  sudo bash "$TMPFILE"
   RC=$?  # Capture the exit code of the install/update command
 
   # Exit code 3 indicates no update is needed
@@ -49,7 +53,7 @@ while (( ATTEMPT < MAX_ATTEMPTS )); do
     echo "rclone successfully updated."
     exit 0
   else
-    # Exponentially backoff and retry update
+    # Exponentially back off and retry update
     (( ATTEMPT++ ))
     echo "Update failed. Attempt $ATTEMPT/$MAX_ATTEMPTS failed."
     DELAY=$(( BASE**ATTEMPT ))
