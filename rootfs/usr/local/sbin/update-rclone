@@ -37,8 +37,6 @@ while (( ATTEMPT < MAX_ATTEMPTS )); do
   sed -i "s~curl -OfsS~curl -OfsSL~g" "$TMPFILE"
   sed -i "s~download_link=\"https://downloads.rclone.org/~download_link=\"https://github.com/rclone/rclone/releases/download/v\${current_version#rclone v}/~g" "$TMPFILE"
   sed -i "s~rclone-current-\${OS}-\${OS_type}\.zip~rclone-v\${current_version#rclone v}-\${OS}-\${OS_type}.zip~g" "$TMPFILE"
-
-  cat "$TMPFILE"
   
   # Install or update rclone using the modified script
   sudo bash "$TMPFILE"
