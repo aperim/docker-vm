@@ -131,24 +131,27 @@ if [[ ${#packages_to_install[@]} -ne 0 ]]; then
     fi
 fi
 
-# Check if DNSStubListener is yes
-# Checking and commenting out any uncommented "DNSStubListener=yes" lines
-sed -i 's/^\(DNSStubListener=yes\)/#\1/' /etc/systemd/resolved.conf || print_error "Failed to edit configuration"
-
-# Now, checking if "DNSStubListener=no" is set, if not, it will be added
-if ! grep -q "^DNSStubListener=no" /etc/systemd/resolved.conf; then
-    echo "DNSStubListener=no" >> /etc/systemd/resolved.conf || print_error "Failed to append configuration"
+# Debian-specific adjustments
+if [[ "$OS_ID" == "ubuntu" ]]; then
+    # Check if DNSStubListener is yes
+    # Checking and commenting out any uncommented "DNSStubListener=yes" lines
+    sed -i 's/^\(DNSStubListener=yes\)/#\1/' /etc/systemd/resolved.conf || print_error "Failed to edit configuration"
+    
+    # Now, checking if "DNSStubListener=no" is set, if not, it will be added
+    if ! grep -q "^DNSStubListener=no" /etc/systemd/resolved.conf; then
+        echo "DNSStubListener=no" >> /etc/systemd/resolved.conf || print_error "Failed to append configuration"
+    fi
+    rm -f /etc/resolv.conf
+    original_dir=$(pwd)
+    cd /etc
+    ln -s ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+    cd "$original_dir"
+    
+    # Restart systemd-resolved
+    sudo systemctl restart systemd-networkd
+    systemctl restart systemd-resolved
+    print_message "DNSStubListener has been disabled and systemd-resolved has been restarted"
 fi
-rm -f /etc/resolv.conf
-original_dir=$(pwd)
-cd /etc
-ln -s ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-cd "$original_dir"
-
-# Restart systemd-resolved
-sudo systemctl restart systemd-networkd
-systemctl restart systemd-resolved
-print_message "DNSStubListener has been disabled and systemd-resolved has been restarted"
 
 # Remove the temporary directory if it exists, and clone the repo
 rm -rf "$TEMP_DIR"
