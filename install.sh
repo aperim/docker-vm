@@ -46,6 +46,38 @@ create_operations_user() {
     print_message "User $OPERATIONS_USER added to group $OPERATIONS_USER"
 }
 
+# Function to add Docker repository and GPG keys based on the OS
+add_docker_repository() {
+    local docker_repo_url
+    if [[ "$OS_ID" == "debian" ]]; then
+        docker_repo_url="https://download.docker.com/linux/debian"
+    elif [[ "$OS_ID" == "ubuntu" ]]; then
+        docker_repo_url="https://download.docker.com/linux/ubuntu"
+    else
+        print_error "Unsupported operating system: $OS_ID"
+    fi
+
+    install -m 0755 -d /etc/apt/keyrings &&
+    curl -fsSL https://download.docker.com/linux/${OS_ID}/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg &&
+    chmod a+r /etc/apt/keyrings/docker.gpg &&
+    safe_add_line_to_file "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] $docker_repo_url $(. /etc/os-release && echo "$OS_VERSION_CODENAME") stable" /etc/apt/sources.list.d/docker.list
+
+    if ! curl --silent --head --fail "$docker_repo_url/dists/$OS_VERSION_CODENAME" >/dev/null; then
+        if [[ "$OS_ID" == "ubuntu" ]]; then
+            sed -i "s/${OS_VERSION_CODENAME}/lunar/g" /etc/apt/sources.list.d/docker.list
+        elif [[ "$OS_ID" == "debian" ]]; then
+            # For Debian, use a known working distribution version like 'Bullseye'
+            sed -i "s/${OS_VERSION_CODENAME}/bullseye/g" /etc/apt/sources.list.d/docker.list
+        fi
+    fi
+}
+
+# Determine the operating system (Ubuntu/Debian)
+OS_ID=$(grep '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
+OS_VERSION_CODENAME=$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '"')
+
+print_message "Detected OS: $OS_ID $OS_VERSION_CODENAME"
+
 # Ensure the script is being run as root
 if [[ $EUID -ne 0 ]]; then
     print_error "This script must be run as root"
@@ -197,20 +229,8 @@ mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22
 curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
     gpg --dearmor --output /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg || print_error "Failed to import 1Password asc"
 
-# Create necessary directories and file
-install -m 0755 -d /etc/apt/keyrings && \
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
-    chmod a+r /etc/apt/keyrings/docker.gpg && \
-    safe_add_line_to_file "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" /etc/apt/sources.list.d/docker.list
-
-# Get the version of the Ubuntu release
-UBUNTU_VERSION=$(. /etc/os-release && echo "$VERSION_CODENAME")
-
-# Check if the Docker repository has a dist for the Ubuntu release
-if ! curl --silent --head --fail "https://download.docker.com/linux/ubuntu/dists/$UBUNTU_VERSION" >/dev/null; then
-  # If not, replace the version in the Docker apt sources file with 'lunar'
-  sed -i "s/${UBUNTU_VERSION}/lunar/g" /etc/apt/sources.list.d/docker.list
-fi
+# Add Docker Repository
+add_docker_repository
 
 # Update apt-get
 apt-get update || print_error "Failed to run 'apt-get update'"
