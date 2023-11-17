@@ -34,7 +34,7 @@ while (( ATTEMPT < MAX_ATTEMPTS )); do
   curl -s https://rclone.org/install.sh -o "$TMPFILE"
 
   # Modify the install.sh script to force the use of HTTP/1.1 protocol
-  sed -i 's/curl /curl --http1.1 /g' "$TMPFILE"
+  sed -i 's/curl /curl --http1.0 /g' "$TMPFILE"
 
   # Install or update rclone using the modified script
   sudo bash "$TMPFILE" beta
