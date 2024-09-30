@@ -69,7 +69,7 @@ setup() {
 
     # Function to retrieve the password using op.
     get_rclone_password() {
-      rclone_password=$(op item get 'Rclone Server Config' --vault 'Servers' --fields password)
+      rclone_password=$(op item get 'Rclone Server Config' --vault 'Servers' --fields password --reveal)
     }
 
     # Retry getting the password up to 3 times with 5 seconds interval.
