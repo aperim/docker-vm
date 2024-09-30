@@ -1,72 +1,99 @@
 #!/usr/bin/env bash
+#
+# rclone-setup: Start the rclone service for Docker with secure password handling.
+#
+# This script retrieves the rclone configuration password from 1Password and starts
+# the rclone service for Docker using the encrypted configuration file.
+#
+# The script handles network failures when retrieving the password and retries up to 3 times.
+#
+# Author: Troy Kelly <troy@aperim.com>
+# Last Modified: 2024-09-30
+#
 
-# Determine location of mount and umount commands
-MOUNT_CMD=$(which mount)
-UMOUNT_CMD=$(which umount)
+set -euo pipefail
 
-# Retry function: try a command upto $1 times, wait $2 seconds between tries.
+# Trap signals to ensure cleanup.
+trap cleanup EXIT TERM INT
+
+# Cleanup function to be executed on EXIT, TERM & INT signals.
+cleanup() {
+  log "Cleaning up..."
+  # Insert any necessary cleanup code here.
+}
+
+# Log function for informational messages.
+log() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') [INFO] $*"
+}
+
+# Error log function for error messages.
+error_log() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') [ERROR] $*" >&2
+}
+
+# Retry function to attempt a command multiple times.
 retry() {
-  local -r -i max_attempts="$1"; shift
-  local -r -i sleep_interval="$1"; shift
-  local -i attempt_num=1
-
+  local -r max_attempts="$1"; shift
+  local -r sleep_interval="$1"; shift
+  local attempt=1
   until "$@"; do
-    if (( attempt_num == max_attempts )); then
-      echo "Attempt $attempt_num failed and there are no more attempts left!"
+    if (( attempt >= max_attempts )); then
+      error_log "Attempt $attempt failed and there are no more attempts left!"
       return 1
     else
-      echo "Attempt $attempt_num failed! Trying again in $sleep_interval seconds..."
+      error_log "Attempt $attempt failed! Trying again in $sleep_interval seconds..."
       sleep "$sleep_interval"
+      ((attempt++))
     fi
-    attempt_num=$((attempt_num+1))
-    shift
   done
 }
 
-# Cleanup function to be executed on EXIT
-function cleanup {
-  echo "Cleaning up decrypted config file and tmpfs..."
-  rm -f /run/rclone-config/rclone.conf
-  sudo $UMOUNT_CMD /run/rclone-config
-}
+# Main setup function.
+setup() {
+  local op_service_account_token=""
+  local rclone_password=""
 
-# Function for decrypting the rclone config
-function setup {
+  # Check if the OP service account token file exists and is non-empty.
+  if [[ -f "/var/secrets/op" ]] && [[ -s "/var/secrets/op" ]]; then
+    log "Reading OP service account token."
+    op_service_account_token=$(cat /var/secrets/op)
+  else
+    error_log "OP service account token file does not exist or is empty."
+  fi
 
-  # Commands to create the necessary directories and mount tmpfs
-  mkdir -p /run/rclone-config
-  sudo $MOUNT_CMD -t tmpfs -o size=1M tmpfs /run/rclone-config
-  mkdir -p /var/lib/docker-volumes/rclone
-  mkdir -p /var/lib/docker-plugins/rclone/cache
+  # If the OP service account token is available, retrieve the rclone password.
+  if [[ -n "${op_service_account_token}" ]]; then
+    log "Retrieving rclone password from 1Password."
+    export OP_SERVICE_ACCOUNT_TOKEN="${op_service_account_token}"
 
-  # Check if the secrets file exists
-  if [[ -f "/var/secrets/op" ]]; then
-    # Check if the file is not empty
-    if [[ -s "/var/secrets/op" ]]; then
-      # Read the token from the secrets file
-      export OP_SERVICE_ACCOUNT_TOKEN=$(cat /var/secrets/op)
-
-      # Retrieve the password from 1Password
+    # Function to retrieve the password using op.
+    get_rclone_password() {
       rclone_password=$(op item get 'Rclone Server Config' --vault 'Servers' --fields password)
+    }
 
-      # Update the password environment variable for rclone service
-      export RCLONE_CONFIG_PASS="${rclone_password}"
+    # Retry getting the password up to 3 times with 5 seconds interval.
+    if retry 3 5 get_rclone_password; then
+      log "Successfully retrieved rclone password."
+    else
+      error_log "Failed to retrieve rclone password after multiple attempts."
+      exit 1
+    fi
 
-      # Decrypt the rclone config
-      RCLONE_CONFIG=/var/lib/docker-plugins/rclone/config/rclone.conf rclone config show --ask-password=false > /run/rclone-config/rclone.conf
+    # Start the rclone service with the encrypted config file and password.
+    log "Starting rclone service with encrypted config."
+    env RCLONE_CONFIG_PASS="${rclone_password}" /usr/bin/rclone serve docker --config /var/lib/docker-plugins/rclone/config/rclone.conf
+  else
+    # If no OP service account token, attempt to start with unencrypted config.
+    if [[ -f "/var/lib/docker-plugins/rclone/config/rclone.conf" ]]; then
+      log "Starting rclone service with unencrypted config."
+      /usr/bin/rclone serve docker --config /var/lib/docker-plugins/rclone/config/rclone.conf
+    else
+      error_log "No valid OP service account token and no unencrypted rclone config available."
+      exit 1
     fi
   fi
-  # If no valid secret found, just copy the config to tmp location
-  if [[ -z "${OP_SERVICE_ACCOUNT_TOKEN}" ]]; then
-    cp /var/lib/docker-plugins/rclone/config/rclone.conf /run/rclone-config/rclone.conf
-  fi
-
-  # Start the rclone service
-  /usr/bin/rclone serve docker --config /run/rclone-config/rclone.conf
 }
 
-# Add traps for cleanup on EXIT, TERM & INT signals
-trap cleanup EXIT TERM INT
-
-# Run the setup function
+# Run the main setup function.
 setup
